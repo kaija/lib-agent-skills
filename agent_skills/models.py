@@ -8,7 +8,23 @@ from typing import Any
 
 
 class SkillState(Enum):
-    """State machine for skill interaction lifecycle."""
+    """State machine for skill interaction lifecycle.
+    
+    Represents the various states a skill can be in during agent interaction.
+    State transitions follow a defined flow:
+    
+    DISCOVERED → SELECTED → INSTRUCTIONS_LOADED → RESOURCE_NEEDED/SCRIPT_NEEDED → VERIFYING → DONE/FAILED
+    
+    Attributes:
+        DISCOVERED: Skill has been found during scanning
+        SELECTED: Skill has been chosen by the agent
+        INSTRUCTIONS_LOADED: SKILL.md body has been loaded
+        RESOURCE_NEEDED: Agent needs to read references or assets
+        SCRIPT_NEEDED: Agent needs to execute a script
+        VERIFYING: Agent is verifying results
+        DONE: Skill interaction completed successfully
+        FAILED: Skill interaction failed
+    """
     DISCOVERED = "discovered"
     SELECTED = "selected"
     INSTRUCTIONS_LOADED = "instructions_loaded"
@@ -21,7 +37,31 @@ class SkillState(Enum):
 
 @dataclass
 class SkillDescriptor:
-    """Metadata-only representation of a skill."""
+    """Metadata-only representation of a skill.
+    
+    Contains all metadata from the SKILL.md frontmatter without loading the full
+    markdown body. This enables fast skill discovery and listing.
+    
+    Attributes:
+        name: Unique skill identifier
+        description: Brief description of what the skill does
+        path: Filesystem path to the skill directory
+        license: Optional license identifier (e.g., "MIT", "Apache-2.0")
+        compatibility: Optional compatibility information (frameworks, Python version)
+        metadata: Optional additional metadata (author, version, category, etc.)
+        allowed_tools: Optional list of tool names the skill can use
+        hash: SHA256 hash of the frontmatter content (for cache validation)
+        mtime: File modification time (for cache validation)
+    
+    Example:
+        >>> descriptor = SkillDescriptor(
+        ...     name="data-processor",
+        ...     description="Process CSV and JSON data files",
+        ...     path=Path("/skills/data-processor"),
+        ...     license="MIT",
+        ...     metadata={"author": "Team", "version": "1.0.0"},
+        ... )
+    """
     name: str
     description: str
     path: Path
@@ -33,7 +73,11 @@ class SkillDescriptor:
     mtime: float = 0.0
     
     def to_dict(self) -> dict:
-        """Serialize to JSON-compatible dict."""
+        """Serialize to JSON-compatible dict.
+        
+        Returns:
+            Dictionary with all fields, Path converted to string
+        """
         return {
             "name": self.name,
             "description": self.description,
@@ -48,7 +92,14 @@ class SkillDescriptor:
     
     @classmethod
     def from_dict(cls, data: dict) -> "SkillDescriptor":
-        """Deserialize from dict."""
+        """Deserialize from dict.
+        
+        Args:
+            data: Dictionary with skill descriptor fields
+            
+        Returns:
+            SkillDescriptor instance
+        """
         return cls(
             name=data["name"],
             description=data["description"],
@@ -64,7 +115,27 @@ class SkillDescriptor:
 
 @dataclass
 class ExecutionResult:
-    """Result of script execution."""
+    """Result of script execution.
+    
+    Contains all information about a completed script execution, including
+    exit code, output, errors, timing, and metadata about the execution environment.
+    
+    Attributes:
+        exit_code: Process exit code (0 for success, non-zero for failure)
+        stdout: Standard output from the script
+        stderr: Standard error from the script
+        duration_ms: Execution duration in milliseconds
+        meta: Additional metadata (sandbox type, resource usage, etc.)
+    
+    Example:
+        >>> result = ExecutionResult(
+        ...     exit_code=0,
+        ...     stdout="Processing complete\\n",
+        ...     stderr="",
+        ...     duration_ms=1234,
+        ...     meta={"sandbox": "local_subprocess"},
+        ... )
+    """
     exit_code: int
     stdout: str
     stderr: str
@@ -72,7 +143,11 @@ class ExecutionResult:
     meta: dict = field(default_factory=dict)
     
     def to_dict(self) -> dict:
-        """Serialize to JSON-compatible dict."""
+        """Serialize to JSON-compatible dict.
+        
+        Returns:
+            Dictionary with all execution result fields
+        """
         return {
             "exit_code": self.exit_code,
             "stdout": self.stdout,
@@ -83,7 +158,14 @@ class ExecutionResult:
     
     @classmethod
     def from_dict(cls, data: dict) -> "ExecutionResult":
-        """Deserialize from dict."""
+        """Deserialize from dict.
+        
+        Args:
+            data: Dictionary with execution result fields
+            
+        Returns:
+            ExecutionResult instance
+        """
         return cls(
             exit_code=data["exit_code"],
             stdout=data["stdout"],
@@ -274,7 +356,26 @@ class ToolResponse:
 
 @dataclass
 class ResourcePolicy:
-    """Configuration for resource access limits."""
+    """Configuration for resource access limits.
+    
+    Defines security policies for file access, including size limits,
+    allowed file types, and binary asset handling.
+    
+    Attributes:
+        max_file_bytes: Maximum bytes to read from a single file (default: 200KB)
+        max_total_bytes_per_session: Maximum total bytes per session (default: 1MB)
+        allow_extensions_text: Set of allowed text file extensions
+        allow_binary_assets: Whether binary assets are allowed (default: False)
+        binary_max_bytes: Maximum bytes for binary assets (default: 2MB)
+    
+    Example:
+        >>> policy = ResourcePolicy(
+        ...     max_file_bytes=100_000,
+        ...     max_total_bytes_per_session=500_000,
+        ...     allow_extensions_text={".md", ".txt", ".json"},
+        ...     allow_binary_assets=False,
+        ... )
+    """
     max_file_bytes: int = 200_000
     max_total_bytes_per_session: int = 1_000_000
     allow_extensions_text: set[str] = field(
@@ -284,7 +385,11 @@ class ResourcePolicy:
     binary_max_bytes: int = 2_000_000
     
     def to_dict(self) -> dict:
-        """Serialize to JSON-compatible dict."""
+        """Serialize to JSON-compatible dict.
+        
+        Returns:
+            Dictionary with all policy fields, set converted to list
+        """
         return {
             "max_file_bytes": self.max_file_bytes,
             "max_total_bytes_per_session": self.max_total_bytes_per_session,
@@ -295,7 +400,14 @@ class ResourcePolicy:
     
     @classmethod
     def from_dict(cls, data: dict) -> "ResourcePolicy":
-        """Deserialize from dict."""
+        """Deserialize from dict.
+        
+        Args:
+            data: Dictionary with policy fields
+            
+        Returns:
+            ResourcePolicy instance
+        """
         return cls(
             max_file_bytes=data.get("max_file_bytes", 200_000),
             max_total_bytes_per_session=data.get("max_total_bytes_per_session", 1_000_000),
@@ -307,7 +419,31 @@ class ResourcePolicy:
 
 @dataclass
 class ExecutionPolicy:
-    """Configuration for script execution permissions."""
+    """Configuration for script execution permissions.
+    
+    Defines security policies for script execution, including allowlists,
+    timeouts, and environment restrictions. Execution is disabled by default
+    for security.
+    
+    Attributes:
+        enabled: Whether script execution is enabled (default: False)
+        allow_skills: Set of skill names allowed to execute scripts
+        allow_scripts_glob: List of glob patterns for allowed script paths
+        timeout_s_default: Default timeout in seconds (default: 60)
+        network_access: Whether scripts can access network (default: False)
+        env_allowlist: Set of environment variables to pass to scripts
+        workdir_mode: Working directory mode: "skill_root" or "tempdir"
+    
+    Example:
+        >>> policy = ExecutionPolicy(
+        ...     enabled=True,
+        ...     allow_skills={"data-processor", "api-client"},
+        ...     allow_scripts_glob=["scripts/*.py"],
+        ...     timeout_s_default=30,
+        ...     network_access=False,
+        ...     workdir_mode="tempdir",
+        ... )
+    """
     enabled: bool = False
     allow_skills: set[str] = field(default_factory=set)
     allow_scripts_glob: list[str] = field(default_factory=list)
@@ -317,7 +453,11 @@ class ExecutionPolicy:
     workdir_mode: str = "skill_root"  # "skill_root" or "tempdir"
     
     def to_dict(self) -> dict:
-        """Serialize to JSON-compatible dict."""
+        """Serialize to JSON-compatible dict.
+        
+        Returns:
+            Dictionary with all policy fields, sets converted to lists
+        """
         return {
             "enabled": self.enabled,
             "allow_skills": list(self.allow_skills),
@@ -330,7 +470,14 @@ class ExecutionPolicy:
     
     @classmethod
     def from_dict(cls, data: dict) -> "ExecutionPolicy":
-        """Deserialize from dict."""
+        """Deserialize from dict.
+        
+        Args:
+            data: Dictionary with policy fields
+            
+        Returns:
+            ExecutionPolicy instance
+        """
         return cls(
             enabled=data.get("enabled", False),
             allow_skills=set(data.get("allow_skills", [])),

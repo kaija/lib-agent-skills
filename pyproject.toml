@@ -9,8 +9,19 @@ description = "Lazy loading and progressive disclosure for Agent Skills"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
+license-files = ["LICENSE"]
 authors = [
     {name = "Agent Skills Team"}
+]
+keywords = [
+    "agent",
+    "skills",
+    "langchain",
+    "adk",
+    "lazy-loading",
+    "progressive-disclosure",
+    "ai",
+    "llm",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -20,16 +31,31 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-
 dependencies = [
     "pyyaml>=6.0",
     "pydantic>=2.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/agent-skills/agent-skills-runtime"
+Documentation = "https://github.com/agent-skills/agent-skills-runtime#readme"
+Repository = "https://github.com/agent-skills/agent-skills-runtime"
+Issues = "https://github.com/agent-skills/agent-skills-runtime/issues"
+
 [project.optional-dependencies]
 langchain = [
     "langchain>=0.1.0",
+    "langchain-core>=0.1.0",
+]
+adk = [
+    # ADK dependencies would go here when available
+    # For now, ADK integration uses dict-based tool specs
+]
+all = [
+    "agent-skills[langchain]",
 ]
 test = [
     "pytest>=7.0",
@@ -38,9 +64,11 @@ test = [
     "hypothesis>=6.0",
 ]
 dev = [
-    "agent-skills[test]",
+    "agent-skills[test,all]",
     "black>=23.0",
     "ruff>=0.1.0",
+    "mypy>=1.0",
+    "types-PyYAML>=6.0",
 ]
 
 [project.scripts]

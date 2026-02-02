@@ -2,8 +2,16 @@
 
 import hashlib
 from pathlib import Path
+from typing import TypedDict
 from agent_skills.models import ResourcePolicy
 from agent_skills.exceptions import ResourceTooLargeError
+
+
+class SearchResult(TypedDict):
+    """Type definition for search results."""
+    path: str
+    line_num: int
+    context: str
 
 
 class ResourceReader:
@@ -177,3 +185,83 @@ class ResourceReader:
             Total bytes read so far in this session
         """
         return self.session_bytes_read
+
+
+class FullTextSearcher:
+    """Searches text files for query strings.
+    
+    This class provides full-text search functionality across all text files
+    in a directory, returning matches with context.
+    """
+    
+    def search(
+        self,
+        directory: Path,
+        query: str,
+        max_results: int = 20
+    ) -> list[SearchResult]:
+        """Search all text files in directory for query string.
+        
+        Args:
+            directory: Directory to search in (searches recursively)
+            query: Search query string (case-insensitive substring match)
+            max_results: Maximum number of results to return (default: 20)
+        
+        Returns:
+            List of SearchResult dicts containing:
+            - path: Relative path to the file from the search directory
+            - line_num: Line number where match was found (1-indexed)
+            - context: The matching line with surrounding context
+        
+        Note:
+            - Search is case-insensitive
+            - Only searches text files (attempts to decode as UTF-8)
+            - Returns up to max_results matches to prevent excessive response size
+            - Context includes the matching line only (not surrounding lines)
+        """
+        results: list[SearchResult] = []
+        query_lower = query.lower()
+        
+        # If directory doesn't exist, return empty results
+        if not directory.exists() or not directory.is_dir():
+            return results
+        
+        # Recursively search all files in directory
+        for file_path in directory.rglob('*'):
+            # Skip directories
+            if not file_path.is_file():
+                continue
+            
+            # Skip if we've already found enough results
+            if len(results) >= max_results:
+                break
+            
+            # Try to read as text file
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    for line_num, line in enumerate(f, start=1):
+                        # Check if query is in line (case-insensitive)
+                        if query_lower in line.lower():
+                            # Get relative path from search directory
+                            try:
+                                rel_path = file_path.relative_to(directory)
+                            except ValueError:
+                                # If relative_to fails, use absolute path
+                                rel_path = file_path
+                            
+                            # Add result with context (the matching line, stripped)
+                            results.append({
+                                'path': str(rel_path),
+                                'line_num': line_num,
+                                'context': line.rstrip('\n\r')
+                            })
+                            
+                            # Check if we've hit the limit
+                            if len(results) >= max_results:
+                                return results
+            
+            except (UnicodeDecodeError, PermissionError, OSError):
+                # Skip files that can't be read as text or have permission issues
+                continue
+        
+        return results
