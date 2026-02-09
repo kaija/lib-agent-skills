@@ -1,7 +1,7 @@
 """Agent Skills Runtime - Lazy loading and progressive disclosure for Agent Skills.
 
 This library provides a security-focused system for managing and executing Agent Skills
-with support for LangChain and ADK frameworks.
+with support for LangChain and ADK frameworks, including autonomous agent capabilities.
 """
 
 from agent_skills.exceptions import (
@@ -28,7 +28,8 @@ from agent_skills.models import (
 )
 
 from agent_skills.observability import AuditSink, JSONLAuditSink, StdoutAuditSink
-from agent_skills.runtime import SkillSessionManager
+from agent_skills.runtime import SkillSessionManager, SkillsRepository
+from agent_skills.agent import AutonomousAgent, ApprovalRequest, ApprovalResponse
 from agent_skills.adapters import (
     build_asset_response,
     build_error_response,
@@ -64,6 +65,11 @@ __all__ = [
     "ExecutionPolicy",
     # Runtime
     "SkillSessionManager",
+    "SkillsRepository",
+    # Autonomous Agent
+    "AutonomousAgent",
+    "ApprovalRequest",
+    "ApprovalResponse",
     # Observability
     "AuditSink",
     "JSONLAuditSink",
