@@ -124,7 +124,14 @@ class AutonomousAgent:
         self.tools_by_name = {tool.name: tool for tool in self.tools}
         
         if self.verbose:
-            print(f"[Agent] Built {len(self.tools)} tools")
+            print(f"[Agent] Built {len(self.tools)} tools:")
+            print(f"  • skills_list - List available skills")
+            print(f"  • skills_activate - Load skill instructions")
+            print(f"  • skills_read - Read references/assets")
+            print(f"  • skills_run - Execute scripts")
+            print(f"  • skills_search - Search references")
+            print(f"  • skills_check_file - Check file existence")
+            print(f"  • skills_write_file - Write files")
     
     def _log(self, message: str):
         """Log message if verbose mode is enabled."""
@@ -135,7 +142,7 @@ class AutonomousAgent:
         """Create system prompt with available skills."""
         skills_info = self.repository.to_prompt(format="json")
         
-        return f"""You are an autonomous AI agent with access to specialized skills.
+        return f"""You are an autonomous AI agent with access to specialized skills and file operations.
 
 AVAILABLE SKILLS:
 {skills_info}
@@ -146,25 +153,41 @@ AVAILABLE TOOLS:
 - skills_read: Read files from skill's references/ or assets/ directories
 - skills_run: Execute scripts from skill's scripts/ directory
 - skills_search: Search for text in skill's references/
+- skills_check_file: Check if a file exists and get its properties
+- skills_write_file: Write content to a file (with validation and overwrite protection)
 
 WORKFLOW:
 1. Analyze the user's question/task
 2. Use skills_list to find relevant skills (you can filter by query)
 3. Use skills_activate to load the skill's instructions
 4. Use skills_read to access documentation and references as needed
-5. Use skills_run to execute scripts when necessary
-6. Iterate until the task is complete
-7. Provide a clear final answer to the user
+5. Use skills_check_file to verify input files exist before processing
+6. Use skills_write_file to create configuration files, schemas, or other needed files
+7. Use skills_run to execute scripts when necessary
+8. Use skills_check_file to verify output files were created successfully
+9. Iterate until the task is complete
+10. Provide a clear final answer to the user
+
+FILE OPERATIONS:
+- Use skills_check_file before reading files to ensure they exist
+- Use skills_write_file to create files (JSON, text, configs, schemas)
+- JSON files are automatically validated before writing
+- Files are not overwritten by default (use overwrite=true if needed)
+- Maximum file size is 10MB
 
 IMPORTANT RULES:
 - Always activate a skill before using it (to understand how it works)
 - Read references/documentation when you need more information
+- Check if input files exist before processing
+- Create necessary files (schemas, configs) using skills_write_file
 - When executing scripts, provide clear reasoning for why you need to run them
 - If a script fails, analyze the error and try alternative approaches
+- Verify outputs were created successfully using skills_check_file
 - Provide helpful, detailed responses to the user
 
-Remember: You have full autonomy to select skills, read documentation, and execute
-scripts to accomplish the user's task. Use your judgment to determine the best approach.
+Remember: You have full autonomy to select skills, read documentation, create files,
+and execute scripts to accomplish the user's task. Use your judgment to determine the
+best approach.
 """
     
     def _request_approval(
