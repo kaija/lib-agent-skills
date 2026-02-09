@@ -140,6 +140,11 @@ def demonstrate_session_management(session_manager):
     # Simulate state transitions
     from agent_skills.models import SkillState
     
+    print("Transitioning to SELECTED...")
+    session.transition(SkillState.SELECTED)
+    print(f"Current state: {session.state.value}")
+    print()
+    
     print("Transitioning to INSTRUCTIONS_LOADED...")
     session.transition(SkillState.INSTRUCTIONS_LOADED)
     print(f"Current state: {session.state.value}")
