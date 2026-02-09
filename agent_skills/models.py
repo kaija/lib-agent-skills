@@ -9,12 +9,12 @@ from typing import Any
 
 class SkillState(Enum):
     """State machine for skill interaction lifecycle.
-    
+
     Represents the various states a skill can be in during agent interaction.
     State transitions follow a defined flow:
-    
+
     DISCOVERED → SELECTED → INSTRUCTIONS_LOADED → RESOURCE_NEEDED/SCRIPT_NEEDED → VERIFYING → DONE/FAILED
-    
+
     Attributes:
         DISCOVERED: Skill has been found during scanning
         SELECTED: Skill has been chosen by the agent
@@ -38,10 +38,10 @@ class SkillState(Enum):
 @dataclass
 class SkillDescriptor:
     """Metadata-only representation of a skill.
-    
+
     Contains all metadata from the SKILL.md frontmatter without loading the full
     markdown body. This enables fast skill discovery and listing.
-    
+
     Attributes:
         name: Unique skill identifier
         description: Brief description of what the skill does
@@ -52,7 +52,7 @@ class SkillDescriptor:
         allowed_tools: Optional list of tool names the skill can use
         hash: SHA256 hash of the frontmatter content (for cache validation)
         mtime: File modification time (for cache validation)
-    
+
     Example:
         >>> descriptor = SkillDescriptor(
         ...     name="data-processor",
@@ -71,10 +71,10 @@ class SkillDescriptor:
     allowed_tools: list[str] | None = None
     hash: str = ""  # SHA256 of frontmatter
     mtime: float = 0.0
-    
+
     def to_dict(self) -> dict:
         """Serialize to JSON-compatible dict.
-        
+
         Returns:
             Dictionary with all fields, Path converted to string
         """
@@ -89,14 +89,14 @@ class SkillDescriptor:
             "hash": self.hash,
             "mtime": self.mtime,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "SkillDescriptor":
         """Deserialize from dict.
-        
+
         Args:
             data: Dictionary with skill descriptor fields
-            
+
         Returns:
             SkillDescriptor instance
         """
@@ -116,17 +116,17 @@ class SkillDescriptor:
 @dataclass
 class ExecutionResult:
     """Result of script execution.
-    
+
     Contains all information about a completed script execution, including
     exit code, output, errors, timing, and metadata about the execution environment.
-    
+
     Attributes:
         exit_code: Process exit code (0 for success, non-zero for failure)
         stdout: Standard output from the script
         stderr: Standard error from the script
         duration_ms: Execution duration in milliseconds
         meta: Additional metadata (sandbox type, resource usage, etc.)
-    
+
     Example:
         >>> result = ExecutionResult(
         ...     exit_code=0,
@@ -141,10 +141,10 @@ class ExecutionResult:
     stderr: str
     duration_ms: int
     meta: dict = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict:
         """Serialize to JSON-compatible dict.
-        
+
         Returns:
             Dictionary with all execution result fields
         """
@@ -155,14 +155,14 @@ class ExecutionResult:
             "duration_ms": self.duration_ms,
             "meta": self.meta,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "ExecutionResult":
         """Deserialize from dict.
-        
+
         Args:
             data: Dictionary with execution result fields
-            
+
         Returns:
             ExecutionResult instance
         """
@@ -185,7 +185,7 @@ class AuditEvent:
     bytes: int | None = None
     sha256: str | None = None
     detail: dict = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict:
         """Serialize to JSON-compatible dict."""
         return {
@@ -197,7 +197,7 @@ class AuditEvent:
             "sha256": self.sha256,
             "detail": self.detail,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "AuditEvent":
         """Deserialize from dict."""
@@ -222,7 +222,7 @@ class SkillSession:
     audit: list[AuditEvent] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
-    
+
     def transition(self, new_state: SkillState) -> None:
         """Transition to new state with validation."""
         # Define valid state transitions
@@ -251,25 +251,25 @@ class SkillSession:
             SkillState.DONE: set(),  # Terminal state
             SkillState.FAILED: set(),  # Terminal state
         }
-        
+
         if new_state not in valid_transitions.get(self.state, set()):
             raise ValueError(
                 f"Invalid state transition from {self.state.value} to {new_state.value}"
             )
-        
+
         self.state = new_state
         self.updated_at = datetime.now()
-    
+
     def add_artifact(self, key: str, value: Any) -> None:
         """Store execution artifact."""
         self.artifacts[key] = value
         self.updated_at = datetime.now()
-    
+
     def add_audit(self, event: AuditEvent) -> None:
         """Append audit event."""
         self.audit.append(event)
         self.updated_at = datetime.now()
-    
+
     def to_dict(self) -> dict:
         """Serialize to JSON-compatible dict."""
         return {
@@ -281,7 +281,7 @@ class SkillSession:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "SkillSession":
         """Deserialize from dict."""
@@ -308,7 +308,7 @@ class ToolResponse:
     sha256: str | None = None
     truncated: bool = False
     meta: dict = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict:
         """Serialize to JSON-compatible dict."""
         # Handle bytes content by converting to base64 or indicating binary
@@ -316,7 +316,7 @@ class ToolResponse:
         if isinstance(content, bytes):
             import base64
             content = base64.b64encode(content).decode("utf-8")
-            
+
         return {
             "ok": self.ok,
             "type": self.type,
@@ -328,7 +328,7 @@ class ToolResponse:
             "truncated": self.truncated,
             "meta": self.meta,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "ToolResponse":
         """Deserialize from dict."""
@@ -340,7 +340,7 @@ class ToolResponse:
                 content = base64.b64decode(content)
             except Exception:
                 pass  # Keep as string if decode fails
-                
+
         return cls(
             ok=data["ok"],
             type=data["type"],
@@ -357,17 +357,17 @@ class ToolResponse:
 @dataclass
 class ResourcePolicy:
     """Configuration for resource access limits.
-    
+
     Defines security policies for file access, including size limits,
     allowed file types, and binary asset handling.
-    
+
     Attributes:
         max_file_bytes: Maximum bytes to read from a single file (default: 200KB)
         max_total_bytes_per_session: Maximum total bytes per session (default: 1MB)
         allow_extensions_text: Set of allowed text file extensions
         allow_binary_assets: Whether binary assets are allowed (default: False)
         binary_max_bytes: Maximum bytes for binary assets (default: 2MB)
-    
+
     Example:
         >>> policy = ResourcePolicy(
         ...     max_file_bytes=100_000,
@@ -383,10 +383,10 @@ class ResourcePolicy:
     )
     allow_binary_assets: bool = False
     binary_max_bytes: int = 2_000_000
-    
+
     def to_dict(self) -> dict:
         """Serialize to JSON-compatible dict.
-        
+
         Returns:
             Dictionary with all policy fields, set converted to list
         """
@@ -397,14 +397,14 @@ class ResourcePolicy:
             "allow_binary_assets": self.allow_binary_assets,
             "binary_max_bytes": self.binary_max_bytes,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "ResourcePolicy":
         """Deserialize from dict.
-        
+
         Args:
             data: Dictionary with policy fields
-            
+
         Returns:
             ResourcePolicy instance
         """
@@ -420,11 +420,11 @@ class ResourcePolicy:
 @dataclass
 class ExecutionPolicy:
     """Configuration for script execution permissions.
-    
+
     Defines security policies for script execution, including allowlists,
     timeouts, and environment restrictions. Execution is disabled by default
     for security.
-    
+
     Attributes:
         enabled: Whether script execution is enabled (default: False)
         allow_skills: Set of skill names allowed to execute scripts
@@ -433,7 +433,7 @@ class ExecutionPolicy:
         network_access: Whether scripts can access network (default: False)
         env_allowlist: Set of environment variables to pass to scripts
         workdir_mode: Working directory mode: "skill_root" or "tempdir"
-    
+
     Example:
         >>> policy = ExecutionPolicy(
         ...     enabled=True,
@@ -451,10 +451,10 @@ class ExecutionPolicy:
     network_access: bool = False
     env_allowlist: set[str] = field(default_factory=set)
     workdir_mode: str = "skill_root"  # "skill_root" or "tempdir"
-    
+
     def to_dict(self) -> dict:
         """Serialize to JSON-compatible dict.
-        
+
         Returns:
             Dictionary with all policy fields, sets converted to lists
         """
@@ -467,14 +467,14 @@ class ExecutionPolicy:
             "env_allowlist": list(self.env_allowlist),
             "workdir_mode": self.workdir_mode,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "ExecutionPolicy":
         """Deserialize from dict.
-        
+
         Args:
             data: Dictionary with policy fields
-            
+
         Returns:
             ExecutionPolicy instance
         """

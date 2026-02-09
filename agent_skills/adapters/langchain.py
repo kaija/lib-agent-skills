@@ -49,7 +49,7 @@ class SkillsListTool(BaseTool):
     Optionally filters skills by a query string matching name or description.
     """
     
-    name: str = "skills.list"
+    name: str = "skills_list"
     description: str = (
         "List all available skills with metadata (name, description, path, etc.). "
         "Optionally filter by query string matching skill names or descriptions."
@@ -118,7 +118,7 @@ class SkillsActivateTool(BaseTool):
     The content is cached after first load for performance.
     """
     
-    name: str = "skills.activate"
+    name: str = "skills_activate"
     description: str = (
         "Activate a skill and load its instructions from SKILL.md. "
         "Returns the full markdown body with usage instructions, examples, and guidance."
@@ -185,7 +185,7 @@ class SkillsReadTool(BaseTool):
     Text files are returned as strings, binary files as base64-encoded strings.
     """
     
-    name: str = "skills.read"
+    name: str = "skills_read"
     description: str = (
         "Read a file from a skill's references/ or assets/ directory. "
         "Provide the skill name and relative path (e.g., 'api-docs.md' for references/api-docs.md). "
@@ -276,7 +276,7 @@ class SkillsRunTool(BaseTool):
     comprehensive security policy enforcement.
     """
     
-    name: str = "skills.run"
+    name: str = "skills_run"
     description: str = (
         "Execute a script from a skill's scripts/ directory. "
         "Provide the skill name and relative path (e.g., 'process.py' for scripts/process.py). "
@@ -363,7 +363,7 @@ class SkillsSearchTool(BaseTool):
     references/ directory, returning matches with context.
     """
     
-    name: str = "skills.search"
+    name: str = "skills_search"
     description: str = (
         "Search for text in a skill's references/ directory. "
         "Performs case-insensitive full-text search across all reference files. "

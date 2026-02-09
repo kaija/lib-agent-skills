@@ -21,23 +21,23 @@ from agent_skills.models import ExecutionResult
 
 class LocalSubprocessSandbox(SandboxProvider):
     """Execute scripts as local subprocesses.
-    
+
     This sandbox implementation uses subprocess.run to execute scripts
     in the local environment. It provides:
     - Timeout enforcement via subprocess timeout parameter
     - Stdout/stderr capture
     - Execution duration measurement
     - Basic process isolation (separate process, not containerized)
-    
+
     The sandbox does NOT provide:
     - Filesystem isolation
     - Network isolation
     - Resource limits (CPU, memory)
     - User/permission isolation
-    
+
     For production use with untrusted scripts, use a more secure sandbox
     implementation (Docker, gVisor, etc.).
-    
+
     Example:
         >>> sandbox = LocalSubprocessSandbox()
         >>> result = sandbox.execute(
@@ -51,7 +51,7 @@ class LocalSubprocessSandbox(SandboxProvider):
         >>> print(f"Exit code: {result.exit_code}")
         >>> print(f"Output: {result.stdout}")
     """
-    
+
     def execute(
         self,
         script_path: Path,
@@ -62,7 +62,7 @@ class LocalSubprocessSandbox(SandboxProvider):
         env: dict[str, str],
     ) -> ExecutionResult:
         """Execute script as local subprocess.
-        
+
         Args:
             script_path: Absolute path to the script file to execute
             args: Command-line arguments to pass to the script
@@ -70,14 +70,14 @@ class LocalSubprocessSandbox(SandboxProvider):
             timeout_s: Maximum execution time in seconds
             workdir: Working directory for script execution
             env: Environment variables for the script
-            
+
         Returns:
             ExecutionResult containing exit code, stdout, stderr, duration,
             and metadata indicating this is a local subprocess execution
-            
+
         Raises:
             ScriptTimeoutError: If script execution exceeds timeout_s
-            
+
         Notes:
             - The script is executed directly (not in a shell)
             - stdout and stderr are captured and decoded as UTF-8
@@ -92,16 +92,16 @@ class LocalSubprocessSandbox(SandboxProvider):
                 stdin_input = stdin.encode("utf-8")
             else:
                 stdin_input = stdin
-        
+
         # Build command: [script_path, *args]
         # Note: We execute the script directly, not through a shell
         # The caller is responsible for ensuring the script is executable
         # (e.g., has shebang line, or is invoked via interpreter)
         cmd = [str(script_path)] + args
-        
+
         # Measure execution time
         start_time = time.time()
-        
+
         try:
             # Execute subprocess with timeout
             result = subprocess.run(
@@ -113,15 +113,15 @@ class LocalSubprocessSandbox(SandboxProvider):
                 env=env,
                 check=False,  # Don't raise exception on non-zero exit
             )
-            
+
             # Calculate duration in milliseconds
             duration_ms = int((time.time() - start_time) * 1000)
-            
+
             # Decode stdout and stderr
             # Use 'replace' error handling to avoid decode errors
             stdout = result.stdout.decode("utf-8", errors="replace")
             stderr = result.stderr.decode("utf-8", errors="replace")
-            
+
             return ExecutionResult(
                 exit_code=result.returncode,
                 stdout=stdout,
@@ -129,11 +129,11 @@ class LocalSubprocessSandbox(SandboxProvider):
                 duration_ms=duration_ms,
                 meta={"sandbox": "local_subprocess"},
             )
-            
+
         except subprocess.TimeoutExpired as e:
             # Calculate duration up to timeout
             duration_ms = int((time.time() - start_time) * 1000)
-            
+
             # Try to decode any captured output before timeout
             stdout = ""
             stderr = ""
@@ -141,7 +141,7 @@ class LocalSubprocessSandbox(SandboxProvider):
                 stdout = e.stdout.decode("utf-8", errors="replace")
             if e.stderr:
                 stderr = e.stderr.decode("utf-8", errors="replace")
-            
+
             # Raise timeout error with captured output in message
             raise ScriptTimeoutError(
                 f"Script execution exceeded {timeout_s}s timeout. "

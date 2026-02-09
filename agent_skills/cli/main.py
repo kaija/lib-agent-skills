@@ -34,7 +34,7 @@ from agent_skills.runtime.repository import SkillsRepository
 
 def create_parser() -> argparse.ArgumentParser:
     """Create the argument parser for the CLI.
-    
+
     Returns:
         Configured ArgumentParser instance
     """
@@ -43,9 +43,9 @@ def create_parser() -> argparse.ArgumentParser:
         description="Command-line interface for Agent Skills Runtime",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    
+
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
-    
+
     # List command
     list_parser = subparsers.add_parser(
         "list",
@@ -64,7 +64,7 @@ def create_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Directory for caching skill metadata (optional)",
     )
-    
+
     # Prompt command
     prompt_parser = subparsers.add_parser(
         "prompt",
@@ -101,7 +101,7 @@ def create_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Directory for caching skill metadata (optional)",
     )
-    
+
     # Validate command
     validate_parser = subparsers.add_parser(
         "validate",
@@ -115,7 +115,7 @@ def create_parser() -> argparse.ArgumentParser:
         required=True,
         help="Root directory to scan for skills (can be specified multiple times)",
     )
-    
+
     # Run command
     run_parser = subparsers.add_parser(
         "run",
@@ -158,16 +158,16 @@ def create_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Directory for caching skill metadata (optional)",
     )
-    
+
     return parser
 
 
 def cmd_list(args: argparse.Namespace) -> int:
     """Execute the list command.
-    
+
     Args:
         args: Parsed command-line arguments
-        
+
     Returns:
         Exit code (0 for success, 1 for error)
     """
@@ -177,15 +177,15 @@ def cmd_list(args: argparse.Namespace) -> int:
             roots=args.roots,
             cache_dir=args.cache_dir,
         )
-        
+
         # Discover skills
         skills = repo.refresh()
-        
+
         # Display results
         if not skills:
             print("No skills found.")
             return 0
-        
+
         print(f"Found {len(skills)} skill(s):\n")
         for skill in skills:
             print(f"  {skill.name}")
@@ -196,9 +196,9 @@ def cmd_list(args: argparse.Namespace) -> int:
             if skill.compatibility:
                 print(f"    Compatibility: {skill.compatibility}")
             print()
-        
+
         return 0
-        
+
     except AgentSkillsError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -209,10 +209,10 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 def cmd_prompt(args: argparse.Namespace) -> int:
     """Execute the prompt command.
-    
+
     Args:
         args: Parsed command-line arguments
-        
+
     Returns:
         Exit code (0 for success, 1 for error)
     """
@@ -222,21 +222,21 @@ def cmd_prompt(args: argparse.Namespace) -> int:
             roots=args.roots,
             cache_dir=args.cache_dir,
         )
-        
+
         # Discover skills
         repo.refresh()
-        
+
         # Render prompt
         prompt = repo.to_prompt(
             format=args.format,
             include_location=args.include_location,
         )
-        
+
         # Output prompt
         print(prompt)
-        
+
         return 0
-        
+
     except AgentSkillsError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -247,65 +247,65 @@ def cmd_prompt(args: argparse.Namespace) -> int:
 
 def cmd_validate(args: argparse.Namespace) -> int:
     """Execute the validate command.
-    
+
     Args:
         args: Parsed command-line arguments
-        
+
     Returns:
         Exit code (0 for success, 1 for error)
     """
     try:
         # Create repository
         repo = SkillsRepository(roots=args.roots)
-        
+
         # Discover skills
         skills = repo.refresh()
-        
+
         if not skills:
             print("No skills found.")
             return 0
-        
+
         # Validate each skill
         print(f"Validating {len(skills)} skill(s)...\n")
-        
+
         errors = []
         for skill in skills:
             print(f"Validating {skill.name}...")
-            
+
             # Check SKILL.md exists
             skill_md = skill.path / "SKILL.md"
             if not skill_md.exists():
                 errors.append(f"  ✗ {skill.name}: SKILL.md not found")
                 continue
-            
+
             # Try to parse frontmatter
             try:
                 parser = FrontmatterParser()
                 metadata, _ = parser.parse(skill.path)
-                
+
                 # Check required fields
                 if "name" not in metadata:
                     errors.append(f"  ✗ {skill.name}: Missing required field 'name'")
                 if "description" not in metadata:
                     errors.append(f"  ✗ {skill.name}: Missing required field 'description'")
-                
+
                 # Check directories
                 references_dir = skill.path / "references"
                 assets_dir = skill.path / "assets"
                 scripts_dir = skill.path / "scripts"
-                
+
                 has_references = references_dir.exists() and references_dir.is_dir()
                 has_assets = assets_dir.exists() and assets_dir.is_dir()
                 has_scripts = scripts_dir.exists() and scripts_dir.is_dir()
-                
+
                 print(f"  ✓ {skill.name}: Valid")
                 print(f"    - references/: {'✓' if has_references else '✗'}")
                 print(f"    - assets/: {'✓' if has_assets else '✗'}")
                 print(f"    - scripts/: {'✓' if has_scripts else '✗'}")
-                
+
             except SkillParseError as e:
                 errors.append(f"  ✗ {skill.name}: Parse error - {e}")
-        
+
         # Summary
         print()
         if errors:
@@ -316,7 +316,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         else:
             print(f"All {len(skills)} skill(s) validated successfully.")
             return 0
-        
+
     except AgentSkillsError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -327,10 +327,10 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 def cmd_run(args: argparse.Namespace) -> int:
     """Execute the run command.
-    
+
     Args:
         args: Parsed command-line arguments
-        
+
     Returns:
         Exit code (0 for success, 1 for error)
     """
@@ -342,17 +342,17 @@ def cmd_run(args: argparse.Namespace) -> int:
             allow_scripts_glob=["scripts/*", "scripts/**/*"],
             timeout_s_default=args.timeout,
         )
-        
+
         # Create repository
         repo = SkillsRepository(
             roots=args.roots,
             cache_dir=args.cache_dir,
             execution_policy=execution_policy,
         )
-        
+
         # Discover skills
         repo.refresh()
-        
+
         # Open skill
         try:
             handle = repo.open(args.skill)
@@ -362,38 +362,38 @@ def cmd_run(args: argparse.Namespace) -> int:
             for skill in repo.list():
                 print(f"  - {skill.name}", file=sys.stderr)
             return 1
-        
+
         # Execute script
         print(f"Executing {args.skill}/{args.script}...")
         print(f"Arguments: {args.args}")
         print(f"Timeout: {args.timeout}s")
         print()
-        
+
         result = handle.run_script(
             relpath=args.script,
             args=args.args if args.args else None,
             stdin=args.stdin,
             timeout_s=args.timeout,
         )
-        
+
         # Display results
         print(f"Exit code: {result.exit_code}")
         print(f"Duration: {result.duration_ms}ms")
         print()
-        
+
         if result.stdout:
             print("STDOUT:")
             print(result.stdout)
             print()
-        
+
         if result.stderr:
             print("STDERR:")
             print(result.stderr)
             print()
-        
+
         # Return script's exit code
         return result.exit_code
-        
+
     except AgentSkillsError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -404,14 +404,14 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def main() -> NoReturn:
     """Main entry point for the CLI.
-    
+
     This function is called when the agent-skills command is executed.
     It parses command-line arguments and dispatches to the appropriate
     command handler.
     """
     parser = create_parser()
     args = parser.parse_args()
-    
+
     # Dispatch to command handler
     if args.command == "list":
         exit_code = cmd_list(args)
@@ -424,7 +424,7 @@ def main() -> NoReturn:
     else:
         parser.print_help()
         exit_code = 1
-    
+
     sys.exit(exit_code)
 
 

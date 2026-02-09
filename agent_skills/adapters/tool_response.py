@@ -19,17 +19,17 @@ def build_metadata_response(
     meta: dict | None = None,
 ) -> ToolResponse:
     """Build a success response for skills.list tool.
-    
+
     Args:
         skill_name: Name of the skill (or "all" for list operations)
         descriptors: List of SkillDescriptor objects
         meta: Optional metadata dictionary
-        
+
     Returns:
         ToolResponse with type="metadata"
     """
     content = [desc.to_dict() for desc in descriptors]
-    
+
     return ToolResponse(
         ok=True,
         type="metadata",
@@ -50,19 +50,19 @@ def build_instructions_response(
     meta: dict | None = None,
 ) -> ToolResponse:
     """Build a success response for skills.activate tool.
-    
+
     Args:
         skill_name: Name of the skill
         instructions: The SKILL.md body content
         skill_path: Path to SKILL.md file
         meta: Optional metadata dictionary
-        
+
     Returns:
         ToolResponse with type="instructions"
     """
     content_bytes = instructions.encode("utf-8")
     sha256_hash = hashlib.sha256(content_bytes).hexdigest()
-    
+
     return ToolResponse(
         ok=True,
         type="instructions",
@@ -84,20 +84,20 @@ def build_reference_response(
     meta: dict | None = None,
 ) -> ToolResponse:
     """Build a success response for reading a reference file.
-    
+
     Args:
         skill_name: Name of the skill
         reference_path: Relative path to the reference file
         content: The file content
         truncated: Whether the content was truncated
         meta: Optional metadata dictionary
-        
+
     Returns:
         ToolResponse with type="reference"
     """
     content_bytes = content.encode("utf-8")
     sha256_hash = hashlib.sha256(content_bytes).hexdigest()
-    
+
     return ToolResponse(
         ok=True,
         type="reference",
@@ -119,19 +119,19 @@ def build_asset_response(
     meta: dict | None = None,
 ) -> ToolResponse:
     """Build a success response for reading an asset file.
-    
+
     Args:
         skill_name: Name of the skill
         asset_path: Relative path to the asset file
         content: The binary file content
         truncated: Whether the content was truncated
         meta: Optional metadata dictionary
-        
+
     Returns:
         ToolResponse with type="asset"
     """
     sha256_hash = hashlib.sha256(content).hexdigest()
-    
+
     return ToolResponse(
         ok=True,
         type="asset",
@@ -152,19 +152,19 @@ def build_execution_response(
     meta: dict | None = None,
 ) -> ToolResponse:
     """Build a success response for script execution.
-    
+
     Args:
         skill_name: Name of the skill
         script_path: Relative path to the executed script
         result: ExecutionResult object
         meta: Optional metadata dictionary
-        
+
     Returns:
         ToolResponse with type="execution_result"
     """
     # Merge result.meta with provided meta
     merged_meta = {**result.meta, **(meta or {})}
-    
+
     return ToolResponse(
         ok=True,
         type="execution_result",
@@ -185,13 +185,13 @@ def build_search_response(
     meta: dict | None = None,
 ) -> ToolResponse:
     """Build a success response for full-text search.
-    
+
     Args:
         skill_name: Name of the skill
         query: The search query string
         results: List of search result dictionaries
         meta: Optional metadata dictionary
-        
+
     Returns:
         ToolResponse with type="search_results"
     """
@@ -200,7 +200,7 @@ def build_search_response(
         "result_count": len(results),
         **(meta or {}),
     }
-    
+
     return ToolResponse(
         ok=True,
         type="search_results",
@@ -221,27 +221,27 @@ def build_error_response(
     include_traceback: bool = False,
 ) -> ToolResponse:
     """Build an error response from an exception.
-    
+
     Args:
         skill_name: Name of the skill
         error: The exception that occurred
         path: Optional path related to the error
         include_traceback: Whether to include full traceback in meta
-        
+
     Returns:
         ToolResponse with ok=False and type="error"
     """
     error_type = type(error).__name__
     error_message = str(error)
-    
+
     # Build error content string
     content = f"{error_type}: {error_message}"
-    
+
     # Build meta with error details
     meta: dict[str, Any] = {
         "error_type": error_type,
     }
-    
+
     # Add additional details for specific error types
     if hasattr(error, "__dict__"):
         error_details = {
@@ -250,11 +250,11 @@ def build_error_response(
         }
         if error_details:
             meta["error_details"] = error_details
-    
+
     # Include traceback if requested
     if include_traceback:
         meta["traceback"] = traceback.format_exc()
-    
+
     return ToolResponse(
         ok=False,
         type="error",
@@ -275,19 +275,19 @@ def safe_tool_call(
     include_traceback: bool = False,
 ) -> ToolResponse:
     """Execute a tool operation and convert any exceptions to error responses.
-    
+
     This is a convenience wrapper that catches all exceptions and converts them
     to properly formatted error responses.
-    
+
     Args:
         skill_name: Name of the skill
         operation: Callable that returns a ToolResponse
         path: Optional path related to the operation
         include_traceback: Whether to include full traceback in error responses
-        
+
     Returns:
         ToolResponse (either success from operation or error response)
-        
+
     Example:
         >>> def do_work():
         ...     return build_instructions_response("my-skill", "content", "SKILL.md")
