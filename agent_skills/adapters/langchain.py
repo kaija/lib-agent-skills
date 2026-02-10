@@ -8,6 +8,8 @@ This module provides LangChain BaseTool implementations for all skill operations
 - SkillsSearchTool: Full-text search in references
 - SkillsCheckFileTool: Check if a file exists
 - SkillsWriteFileTool: Write content to a file
+- SkillsDeleteFileTool: Delete a file
+- SkillsListFilesTool: List files in tree structure
 
 All tools return unified JSON responses using the ToolResponse format and apply
 ResourcePolicy and ExecutionPolicy for security.
@@ -47,42 +49,42 @@ class SkillsListInput(BaseModel):
 
 class SkillsListTool(BaseTool):
     """LangChain tool for listing all available skills.
-    
+
     This tool returns metadata for all discovered skills in the repository.
     Optionally filters skills by a query string matching name or description.
     """
-    
+
     name: str = "skills_list"
     description: str = (
         "List all available skills with metadata (name, description, path, etc.). "
         "Optionally filter by query string matching skill names or descriptions."
     )
     args_schema: Type[BaseModel] = SkillsListInput
-    
+
     # Custom field for repository - use Any to avoid Pydantic validation issues
     repository: Any
-    
+
     def __init__(self, repository: SkillsRepository, **kwargs):
         """Initialize with repository.
-        
+
         Args:
             repository: SkillsRepository instance
         """
         super().__init__(repository=repository, **kwargs)
-    
+
     def _run(self, q: Optional[str] = None) -> str:
         """Execute tool and return JSON response.
-        
+
         Args:
             q: Optional filter query
-            
+
         Returns:
             JSON string containing ToolResponse
         """
         try:
             # Get all skills
             skills = self.repository.list()
-            
+
             # Filter by query if provided
             if q:
                 query_lower = q.lower()
@@ -90,16 +92,16 @@ class SkillsListTool(BaseTool):
                     skill for skill in skills
                     if query_lower in skill.name.lower() or query_lower in skill.description.lower()
                 ]
-            
+
             # Build response
             response = build_metadata_response(
                 skill_name="all",
                 descriptors=skills,
                 meta={"query": q, "count": len(skills)},
             )
-            
+
             return json.dumps(response.to_dict(), indent=2)
-        
+
         except Exception as e:
             error_response = build_error_response(
                 skill_name="all",
@@ -116,44 +118,44 @@ class SkillsActivateInput(BaseModel):
 
 class SkillsActivateTool(BaseTool):
     """LangChain tool for activating a skill and loading its instructions.
-    
+
     This tool loads the SKILL.md body content for a specific skill.
     The content is cached after first load for performance.
     """
-    
+
     name: str = "skills_activate"
     description: str = (
         "Activate a skill and load its instructions from SKILL.md. "
         "Returns the full markdown body with usage instructions, examples, and guidance."
     )
     args_schema: Type[BaseModel] = SkillsActivateInput
-    
+
     repository: Any
-    
+
     def __init__(self, repository: SkillsRepository, **kwargs):
         """Initialize with repository.
-        
+
         Args:
             repository: SkillsRepository instance
         """
         super().__init__(repository=repository, **kwargs)
-    
+
     def _run(self, name: str) -> str:
         """Execute tool and return JSON response.
-        
+
         Args:
             name: Skill name
-            
+
         Returns:
             JSON string containing ToolResponse
         """
         try:
             # Open skill handle
             handle = self.repository.open(name)
-            
+
             # Load instructions (lazy loaded and cached)
             instructions = handle.instructions()
-            
+
             # Build response
             response = build_instructions_response(
                 skill_name=name,
@@ -161,9 +163,9 @@ class SkillsActivateTool(BaseTool):
                 skill_path="SKILL.md",
                 meta={},
             )
-            
+
             return json.dumps(response.to_dict(), indent=2)
-        
+
         except Exception as e:
             error_response = build_error_response(
                 skill_name=name,
@@ -183,11 +185,11 @@ class SkillsReadInput(BaseModel):
 
 class SkillsReadTool(BaseTool):
     """LangChain tool for reading skill resources.
-    
+
     This tool reads files from a skill's references/ or assets/ directories.
     Text files are returned as strings, binary files as base64-encoded strings.
     """
-    
+
     name: str = "skills_read"
     description: str = (
         "Read a file from a skill's references/ or assets/ directory. "
@@ -195,39 +197,39 @@ class SkillsReadTool(BaseTool):
         "Text files are returned as strings, binary files as base64-encoded content."
     )
     args_schema: Type[BaseModel] = SkillsReadInput
-    
+
     repository: Any
-    
+
     def __init__(self, repository: SkillsRepository, **kwargs):
         """Initialize with repository.
-        
+
         Args:
             repository: SkillsRepository instance
         """
         super().__init__(repository=repository, **kwargs)
-    
+
     def _run(self, name: str, path: str, max_bytes: Optional[int] = None) -> str:
         """Execute tool and return JSON response.
-        
+
         Args:
             name: Skill name
             path: Relative path to file
             max_bytes: Optional max bytes to read
-            
+
         Returns:
             JSON string containing ToolResponse
         """
         try:
             # Open skill handle
             handle = self.repository.open(name)
-            
+
             # Determine if this is a reference or asset based on path
             # If path starts with "assets/", treat as asset, otherwise reference
             if path.startswith("assets/"):
                 # Read as asset (binary)
                 asset_path = path[7:]  # Remove "assets/" prefix
                 content = handle.read_asset(asset_path, max_bytes=max_bytes)
-                
+
                 # Build asset response
                 response = build_asset_response(
                     skill_name=name,
@@ -241,7 +243,7 @@ class SkillsReadTool(BaseTool):
                 # Remove "references/" prefix if present
                 ref_path = path[11:] if path.startswith("references/") else path
                 content = handle.read_reference(ref_path, max_bytes=max_bytes)
-                
+
                 # Build reference response
                 response = build_reference_response(
                     skill_name=name,
@@ -250,9 +252,9 @@ class SkillsReadTool(BaseTool):
                     truncated=False,  # TODO: Get truncated flag from handle
                     meta={},
                 )
-            
+
             return json.dumps(response.to_dict(), indent=2)
-        
+
         except Exception as e:
             error_response = build_error_response(
                 skill_name=name,
@@ -274,11 +276,11 @@ class SkillsRunInput(BaseModel):
 
 class SkillsRunTool(BaseTool):
     """LangChain tool for executing skill scripts.
-    
+
     This tool executes scripts from a skill's scripts/ directory with
     comprehensive security policy enforcement.
     """
-    
+
     name: str = "skills_run"
     description: str = (
         "Execute a script from a skill's scripts/ directory. "
@@ -287,17 +289,17 @@ class SkillsRunTool(BaseTool):
         "Returns execution result with exit code, stdout, stderr, and duration."
     )
     args_schema: Type[BaseModel] = SkillsRunInput
-    
+
     repository: Any
-    
+
     def __init__(self, repository: SkillsRepository, **kwargs):
         """Initialize with repository.
-        
+
         Args:
             repository: SkillsRepository instance
         """
         super().__init__(repository=repository, **kwargs)
-    
+
     def _run(
         self,
         name: str,
@@ -307,24 +309,24 @@ class SkillsRunTool(BaseTool):
         timeout_s: Optional[int] = None
     ) -> str:
         """Execute tool and return JSON response.
-        
+
         Args:
             name: Skill name
             script_path: Relative path to script
             args: Optional command-line arguments
             stdin: Optional standard input
             timeout_s: Optional timeout in seconds
-            
+
         Returns:
             JSON string containing ToolResponse
         """
         try:
             # Open skill handle
             handle = self.repository.open(name)
-            
+
             # Remove "scripts/" prefix if present
             script_rel_path = script_path[8:] if script_path.startswith("scripts/") else script_path
-            
+
             # Execute script
             result = handle.run_script(
                 relpath=script_rel_path,
@@ -332,7 +334,7 @@ class SkillsRunTool(BaseTool):
                 stdin=stdin,
                 timeout_s=timeout_s,
             )
-            
+
             # Build execution response
             response = build_execution_response(
                 skill_name=name,
@@ -340,9 +342,9 @@ class SkillsRunTool(BaseTool):
                 result=result,
                 meta={},
             )
-            
+
             return json.dumps(response.to_dict(), indent=2)
-        
+
         except Exception as e:
             error_response = build_error_response(
                 skill_name=name,
@@ -361,11 +363,11 @@ class SkillsSearchInput(BaseModel):
 
 class SkillsSearchTool(BaseTool):
     """LangChain tool for searching skill references.
-    
+
     This tool performs full-text search across all files in a skill's
     references/ directory, returning matches with context.
     """
-    
+
     name: str = "skills_search"
     description: str = (
         "Search for text in a skill's references/ directory. "
@@ -373,34 +375,34 @@ class SkillsSearchTool(BaseTool):
         "Returns matching lines with file path, line number, and context."
     )
     args_schema: Type[BaseModel] = SkillsSearchInput
-    
+
     repository: Any
-    
+
     def __init__(self, repository: SkillsRepository, **kwargs):
         """Initialize with repository.
-        
+
         Args:
             repository: SkillsRepository instance
         """
         super().__init__(repository=repository, **kwargs)
-    
+
     def _run(self, name: str, query: str) -> str:
         """Execute tool and return JSON response.
-        
+
         Args:
             name: Skill name
             query: Search query string
-            
+
         Returns:
             JSON string containing ToolResponse
         """
         try:
             # Open skill handle
             handle = self.repository.open(name)
-            
+
             # Get references directory path
             references_dir = handle.descriptor().path / "references"
-            
+
             # Perform search
             searcher = FullTextSearcher()
             results = searcher.search(
@@ -408,7 +410,7 @@ class SkillsSearchTool(BaseTool):
                 query=query,
                 max_results=20,
             )
-            
+
             # Build search response
             response = build_search_response(
                 skill_name=name,
@@ -416,9 +418,9 @@ class SkillsSearchTool(BaseTool):
                 results=results,
                 meta={},
             )
-            
+
             return json.dumps(response.to_dict(), indent=2)
-        
+
         except Exception as e:
             error_response = build_error_response(
                 skill_name=name,
@@ -435,11 +437,11 @@ class SkillsCheckFileInput(BaseModel):
 
 class SkillsCheckFileTool(BaseTool):
     """LangChain tool for checking if a file exists.
-    
+
     This tool checks if a file exists and returns its properties.
     Useful for verifying input files before processing or output files after execution.
     """
-    
+
     name: str = "skills_check_file"
     description: str = (
         "Check if a file exists and get its properties (size, type, etc.). "
@@ -447,47 +449,47 @@ class SkillsCheckFileTool(BaseTool):
         "Use this before reading files or after script execution to verify outputs."
     )
     args_schema: Type[BaseModel] = SkillsCheckFileInput
-    
+
     repository: Any
-    
+
     def __init__(self, repository: SkillsRepository, **kwargs):
         """Initialize with repository.
-        
+
         Args:
             repository: SkillsRepository instance
         """
         super().__init__(repository=repository, **kwargs)
-    
+
     def _run(self, path: str) -> str:
         """Execute tool and return JSON response.
-        
+
         Args:
             path: File path to check
-            
+
         Returns:
             JSON string containing file information
         """
         try:
             from pathlib import Path
-            
+
             file_path = Path(path)
-            
+
             # Check for path traversal
             if ".." in str(file_path):
                 raise ValueError("Invalid path: directory traversal detected")
-            
+
             # Get file information
             result = {
                 "exists": file_path.exists(),
                 "path": str(file_path.resolve()),
             }
-            
+
             if result["exists"]:
                 stat = file_path.stat()
                 result["size"] = stat.st_size
                 result["is_file"] = file_path.is_file()
                 result["is_dir"] = file_path.is_dir()
-                
+
                 if file_path.is_file():
                     # Try to determine if readable
                     try:
@@ -497,7 +499,7 @@ class SkillsCheckFileTool(BaseTool):
                         result["encoding"] = "utf-8"
                     except (UnicodeDecodeError, PermissionError):
                         result["readable"] = False
-            
+
             # Build response
             response = {
                 "ok": True,
@@ -507,9 +509,9 @@ class SkillsCheckFileTool(BaseTool):
                 "content": result,
                 "meta": {},
             }
-            
+
             return json.dumps(response, indent=2)
-        
+
         except Exception as e:
             error_response = build_error_response(
                 skill_name="system",
@@ -529,11 +531,11 @@ class SkillsWriteFileInput(BaseModel):
 
 class SkillsWriteFileTool(BaseTool):
     """LangChain tool for writing content to a file.
-    
+
     This tool writes content to a file with validation and safety checks.
     Useful for creating configuration files, schemas, or any text-based files.
     """
-    
+
     name: str = "skills_write_file"
     description: str = (
         "Write content to a file safely. "
@@ -542,66 +544,66 @@ class SkillsWriteFileTool(BaseTool):
         "Maximum file size is 10MB. Use this to create configuration files, schemas, or any text files."
     )
     args_schema: Type[BaseModel] = SkillsWriteFileInput
-    
+
     repository: Any
-    
+
     def __init__(self, repository: SkillsRepository, **kwargs):
         """Initialize with repository.
-        
+
         Args:
             repository: SkillsRepository instance
         """
         super().__init__(repository=repository, **kwargs)
-    
+
     def _run(self, path: str, content: str, overwrite: bool = False) -> str:
         """Execute tool and return JSON response.
-        
+
         Args:
             path: Output file path
             content: Content to write
             overwrite: Allow overwriting existing files
-            
+
         Returns:
             JSON string containing write result
         """
         try:
             from pathlib import Path
-            
+
             file_path = Path(path)
-            
+
             # Check for path traversal
             if ".." in str(file_path):
                 raise ValueError("Invalid path: directory traversal detected")
-            
+
             # Check if file exists
             if file_path.exists() and not overwrite:
                 raise ValueError(f"File already exists: {path} (use overwrite=true to replace)")
-            
+
             # Validate JSON if .json extension
             if str(file_path).endswith('.json'):
                 try:
                     json.loads(content)
                 except json.JSONDecodeError as e:
                     raise ValueError(f"Invalid JSON content: {e}")
-            
+
             # Check content size (max 10MB)
             content_bytes = content.encode('utf-8')
             if len(content_bytes) > 10 * 1024 * 1024:
                 raise ValueError("Content exceeds maximum size (10MB)")
-            
+
             # Ensure parent directory exists
             file_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Write file
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(content)
-            
+
             # Verify write
             if not file_path.exists():
                 raise ValueError("File write completed but verification failed")
-            
+
             actual_size = file_path.stat().st_size
-            
+
             # Build response
             result = {
                 "success": True,
@@ -610,7 +612,7 @@ class SkillsWriteFileTool(BaseTool):
                 "verified": True,
                 "size": actual_size,
             }
-            
+
             response = {
                 "ok": True,
                 "type": "file_write",
@@ -620,9 +622,286 @@ class SkillsWriteFileTool(BaseTool):
                 "bytes": actual_size,
                 "meta": {},
             }
-            
+
             return json.dumps(response, indent=2)
-        
+
+        except Exception as e:
+            error_response = build_error_response(
+                skill_name="system",
+                error=e,
+                path=path,
+                include_traceback=False,
+            )
+            return json.dumps(error_response.to_dict(), indent=2)
+
+
+class SkillsDeleteFileInput(BaseModel):
+    """Input schema for skills_delete_file tool."""
+    path: str = Field(..., description="File path to delete")
+    confirm: bool = Field(
+        False,
+        description="Confirmation flag - must be true to delete the file"
+    )
+
+
+class SkillsDeleteFileTool(BaseTool):
+    """LangChain tool for deleting a file.
+
+    This tool deletes a file with safety checks and confirmation requirement.
+    Useful for cleaning up temporary files or removing unwanted files.
+    """
+
+    name: str = "skills_delete_file"
+    description: str = (
+        "Delete a file safely. "
+        "Requires confirm=true to actually delete the file. "
+        "Will not delete directories. "
+        "Use this to remove temporary files, clean up outputs, or delete unwanted files."
+    )
+    args_schema: Type[BaseModel] = SkillsDeleteFileInput
+
+    repository: Any
+
+    def __init__(self, repository: SkillsRepository, **kwargs):
+        """Initialize with repository.
+
+        Args:
+            repository: SkillsRepository instance
+        """
+        super().__init__(repository=repository, **kwargs)
+
+    def _run(self, path: str, confirm: bool = False) -> str:
+        """Execute tool and return JSON response.
+
+        Args:
+            path: File path to delete
+            confirm: Confirmation flag (must be true)
+
+        Returns:
+            JSON string containing deletion result
+        """
+        try:
+            from pathlib import Path
+
+            file_path = Path(path)
+
+            # Check for path traversal
+            if ".." in str(file_path):
+                raise ValueError("Invalid path: directory traversal detected")
+
+            # Check if confirmation is provided
+            if not confirm:
+                raise ValueError(
+                    "Deletion requires confirmation. Set confirm=true to delete the file."
+                )
+
+            # Check if file exists
+            if not file_path.exists():
+                raise ValueError(f"File does not exist: {path}")
+
+            # Check if it's a directory
+            if file_path.is_dir():
+                raise ValueError(
+                    f"Cannot delete directory: {path}. This tool only deletes files."
+                )
+
+            # Get file info before deletion
+            file_size = file_path.stat().st_size
+            resolved_path = str(file_path.resolve())
+
+            # Delete the file
+            file_path.unlink()
+
+            # Verify deletion
+            if file_path.exists():
+                raise ValueError("File deletion completed but verification failed")
+
+            # Build response
+            result = {
+                "success": True,
+                "path": resolved_path,
+                "deleted": True,
+                "size": file_size,
+            }
+
+            response = {
+                "ok": True,
+                "type": "file_delete",
+                "skill": "system",
+                "path": path,
+                "content": result,
+                "bytes": file_size,
+                "meta": {},
+            }
+
+            return json.dumps(response, indent=2)
+
+        except Exception as e:
+            error_response = build_error_response(
+                skill_name="system",
+                error=e,
+                path=path,
+                include_traceback=False,
+            )
+            return json.dumps(error_response.to_dict(), indent=2)
+
+
+class SkillsListFilesInput(BaseModel):
+    """Input schema for skills_list_files tool."""
+    path: Optional[str] = Field(".", description="Directory or file path to list")
+    max_depth: Optional[int] = Field(3, description="Maximum depth to recurse")
+    show_hidden: Optional[bool] = Field(False, description="Show hidden files")
+    include_size: Optional[bool] = Field(False, description="Include file sizes")
+
+
+class SkillsListFilesTool(BaseTool):
+    """LangChain tool for listing files and directories in tree structure.
+
+    This tool lists files and directories recursively, similar to the 'tree' command.
+    Useful for exploring directory structures and finding files.
+    """
+
+    name: str = "skills_list_files"
+    description: str = (
+        "List files and directories in a tree-like structure. "
+        "Recursively walks through directories up to max_depth. "
+        "Similar to the 'tree' command. "
+        "Use this to explore directory structures and find files."
+    )
+    args_schema: Type[BaseModel] = SkillsListFilesInput
+
+    repository: Any
+
+    def __init__(self, repository: SkillsRepository, **kwargs):
+        """Initialize with repository.
+
+        Args:
+            repository: SkillsRepository instance
+        """
+        super().__init__(repository=repository, **kwargs)
+
+    def _run(
+        self,
+        path: str = ".",
+        max_depth: int = 3,
+        show_hidden: bool = False,
+        include_size: bool = False
+    ) -> str:
+        """Execute tool and return JSON response.
+
+        Args:
+            path: Directory or file path to list
+            max_depth: Maximum depth to recurse
+            show_hidden: Show hidden files
+            include_size: Include file sizes in output
+
+        Returns:
+            JSON string containing file tree
+        """
+        try:
+            from pathlib import Path
+
+            root_path = Path(path)
+
+            # Check for path traversal
+            if ".." in str(root_path):
+                raise ValueError("Invalid path: directory traversal detected")
+
+            # Check if path exists
+            if not root_path.exists():
+                raise ValueError(f"Path does not exist: {path}")
+
+            def format_size(size_bytes: int) -> str:
+                """Format file size in human-readable format."""
+                for unit in ['B', 'KB', 'MB', 'GB']:
+                    if size_bytes < 1024.0:
+                        return f"{size_bytes:.1f}{unit}"
+                    size_bytes /= 1024.0
+                return f"{size_bytes:.1f}TB"
+
+            def walk_directory(dir_path: Path, prefix: str = "", depth: int = 0) -> list[str]:
+                """Recursively walk directory and build tree structure."""
+                if depth > max_depth:
+                    return []
+
+                lines = []
+
+                try:
+                    # Get all items in directory
+                    items = sorted(dir_path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
+
+                    # Filter hidden files if needed
+                    if not show_hidden:
+                        items = [item for item in items if not item.name.startswith('.')]
+
+                    for i, item in enumerate(items):
+                        is_last = i == len(items) - 1
+                        connector = "└── " if is_last else "├── "
+                        extension = "    " if is_last else "│   "
+
+                        # Build item info
+                        item_info = item.name
+                        if item.is_dir():
+                            item_info += "/"
+                        elif include_size and item.is_file():
+                            try:
+                                size = item.stat().st_size
+                                item_info += f" ({format_size(size)})"
+                            except (OSError, PermissionError):
+                                pass
+
+                        lines.append(f"{prefix}{connector}{item_info}")
+
+                        # Recurse into directories
+                        if item.is_dir() and depth < max_depth:
+                            sub_lines = walk_directory(item, prefix + extension, depth + 1)
+                            lines.extend(sub_lines)
+
+                except PermissionError:
+                    lines.append(f"{prefix}[Permission Denied]")
+
+                return lines
+
+            # Build tree structure
+            if root_path.is_file():
+                # Single file
+                tree_lines = [str(root_path.name)]
+                if include_size:
+                    size = root_path.stat().st_size
+                    tree_lines[0] += f" ({format_size(size)})"
+            else:
+                # Directory tree
+                tree_lines = [str(root_path.resolve()) + "/"]
+                tree_lines.extend(walk_directory(root_path))
+
+            # Build result
+            result = {
+                "path": str(root_path.resolve()),
+                "is_file": root_path.is_file(),
+                "is_dir": root_path.is_dir(),
+                "tree": "\n".join(tree_lines),
+                "total_lines": len(tree_lines),
+            }
+
+            # Build response
+            response = {
+                "ok": True,
+                "type": "file_list",
+                "skill": "system",
+                "path": path,
+                "content": result,
+                "bytes": None,
+                "sha256": None,
+                "truncated": False,
+                "meta": {
+                    "max_depth": max_depth,
+                    "show_hidden": show_hidden,
+                    "include_size": include_size,
+                },
+            }
+
+            return json.dumps(response, indent=2)
+
         except Exception as e:
             error_response = build_error_response(
                 skill_name="system",
@@ -635,14 +914,14 @@ class SkillsWriteFileTool(BaseTool):
 
 def build_langchain_tools(repository: SkillsRepository) -> list[BaseTool]:
     """Build LangChain tools from repository.
-    
-    This function creates all seven skill operation tools configured with
+
+    This function creates all nine skill operation tools configured with
     the provided repository. The tools can be used directly with LangChain
     agents and chains.
-    
+
     Args:
         repository: SkillsRepository instance with discovered skills
-        
+
     Returns:
         List of BaseTool instances:
         - SkillsListTool: List available skills
@@ -652,23 +931,25 @@ def build_langchain_tools(repository: SkillsRepository) -> list[BaseTool]:
         - SkillsSearchTool: Search references
         - SkillsCheckFileTool: Check if file exists
         - SkillsWriteFileTool: Write content to file
-        
+        - SkillsDeleteFileTool: Delete a file
+        - SkillsListFilesTool: List files in tree structure
+
     Example:
         >>> from pathlib import Path
         >>> from agent_skills import SkillsRepository
         >>> from agent_skills.adapters.langchain import build_langchain_tools
-        >>> 
+        >>>
         >>> # Initialize repository
         >>> repo = SkillsRepository(roots=[Path("./skills")])
         >>> repo.refresh()
-        >>> 
+        >>>
         >>> # Build tools
         >>> tools = build_langchain_tools(repo)
-        >>> 
+        >>>
         >>> # Use with LangChain agent
         >>> from langchain.agents import AgentExecutor, create_openai_functions_agent
         >>> from langchain_openai import ChatOpenAI
-        >>> 
+        >>>
         >>> llm = ChatOpenAI(model="gpt-4")
         >>> agent = create_openai_functions_agent(llm, tools, prompt)
         >>> agent_executor = AgentExecutor(agent=agent, tools=tools)
@@ -681,4 +962,8 @@ def build_langchain_tools(repository: SkillsRepository) -> list[BaseTool]:
         SkillsSearchTool(repository=repository),
         SkillsCheckFileTool(repository=repository),
         SkillsWriteFileTool(repository=repository),
+        SkillsDeleteFileTool(repository=repository),
+        SkillsListFilesTool(repository=repository),
     ]
+
+
